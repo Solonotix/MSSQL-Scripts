@@ -447,21 +447,33 @@ AND			(
 			OR	sM.intContains >= ca7.intContains
 			)
 AND   EXISTS(
-			SELECT	0
-			FROM	sys.synonyms sY
-			JOIN	sys.schemas sC ON sY.[schema_id] = sC.[schema_id]
-			WHERE	CHARINDEX(sC.name + N''.'' + sY.name, sM.[definition]) > 0
+			SELECT		0
+			FROM		sys.synonyms sY
+			JOIN		sys.schemas sC ON sY.[schema_id] = sC.[schema_id]
+			CROSS APPLY	(
+						VALUES	(SCHEMA_NAME(sY.[schema_id]) + N''.'' + sY.name)
+								,(QUOTENAME(SCHEMA_NAME(sY.[schema_id])) + N''.'' + QUOTENAME(sY.name))
+								,(SCHEMA_NAME(sY.[schema_id]) + N''.'' + QUOTENAME(sY.name))
+								,(QUOTENAME(SCHEMA_NAME(sY.[schema_id])) + N''.'' + sY.name)
+						) caSyn(strSynName)
+			WHERE		CHARINDEX(caSyn.strSynName, sM.[definition]) > 0
 			);
 
 DECLARE	lstSynCleanse CURSOR LOCAL READ_ONLY FAST_FORWARD
-FOR	SELECT	sC.name + N''.'' + sY.name
-			,sY.base_object_name
-	FROM	sys.synonyms sY
-	JOIN	sys.schemas sC ON sY.[schema_id] = sC.[schema_id]
+FOR	SELECT		caSyn.strSynName
+				,sY.base_object_name
+	FROM		sys.synonyms sY
+	JOIN		sys.schemas sC ON sY.[schema_id] = sC.[schema_id]	
+	CROSS APPLY	(
+				VALUES	(SCHEMA_NAME(sY.[schema_id]) + N''.'' + sY.name)
+						,(QUOTENAME(SCHEMA_NAME(sY.[schema_id])) + N''.'' + QUOTENAME(sY.name))
+						,(SCHEMA_NAME(sY.[schema_id]) + N''.'' + QUOTENAME(sY.name))
+						,(QUOTENAME(SCHEMA_NAME(sY.[schema_id])) + N''.'' + sY.name)
+				) caSyn(strSynName)
 	WHERE EXISTS(
 				SELECT	0
 				FROM	#sqlModules sM
-				WHERE	CHARINDEX(sC.name + N''.'' + sY.name, sM.[definition]) > 0
+				WHERE	CHARINDEX(caSyn.strSynName, sM.[definition]) > 0
 				);
 
 OPEN lstSynCleanse;
